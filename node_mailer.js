@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
 
 function sendEmail(req, res, mailOptionss) {
   let newMailOptions = mailOptionss;
-  newMailOptions.from = "govtpolytechnicpendurthi2018@gmail.com";
+  newMailOptions.from = "gvpce.edu@gmail.com";
   console.log(newMailOptions);
   transporter.sendMail(newMailOptions, function (error, info) {
     if (error) {
