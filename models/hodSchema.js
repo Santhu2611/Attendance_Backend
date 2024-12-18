@@ -29,18 +29,6 @@ const hodSchema = new mongoose.Schema({
     photo: {
         type: String,
         // required: true,
-    },
-    role: {
-        type: String,
-        required: true,
-    },
-    isVerified: {
-        type: Boolean,
-        default: false,
-    },
-    access: {
-        granted: { type: Boolean, default: false },
-        expiresAt: { type: Date, default: null }
     }
 });
 
