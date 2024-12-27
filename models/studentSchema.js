@@ -73,6 +73,18 @@ const StudentSchema = mongoose.Schema(
     qrCodeUrl: {
       type: String,
     },
+    isVerified: {
+        type: Boolean,
+        default: false,
+    },
+    year: {
+        type: String,
+        required: true,
+    },
+    department: {
+        type: String,
+        required: true,
+    },
     attendance: [attendanceSchema], // Attendance field
   },
   {
