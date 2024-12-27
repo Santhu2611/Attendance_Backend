@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const moment = require('moment');
 const bcrypt = require('bcrypt');
 const studentModel = require('./models/studentSchema')
 const dotenv = require('dotenv');
@@ -481,13 +482,60 @@ app.post('/attendance', async (req, res) => {
 app.get('/attendance/:studentId', async (req, res) => {
     try {
         const { studentId } = req.params;
+        const { startDate, endDate } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({ message: "Please provide both startDate and endDate in the query." });
+        }
+
         const student = await studentModel.findById(studentId).select('attendance');
 
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
         }
 
-        res.status(200).json(student.attendance);
+        // Parse dates
+        const start = moment(startDate).startOf('day');
+        const end = moment(endDate).endOf('day');
+
+        // Generate a date range array
+        const dateRange = [];
+        let currentDate = start.clone();
+        while (currentDate.isBefore(end) || currentDate.isSame(end, 'day')) {
+            dateRange.push(currentDate.toISOString());
+            currentDate = currentDate.add(1, 'day');
+        }
+
+        // Map attendance records
+        const attendanceMap = {};
+        student.attendance.forEach(record => {
+            attendanceMap[moment(record.date).startOf('day').toISOString()] = {
+                status: record.status,
+                remarks: record.remarks || '',
+            };
+        });
+
+        // Build the response
+        const response = dateRange.map(date => {
+            const record = attendanceMap[moment(date).startOf('day').toISOString()];
+            if (record) {
+                return {
+                    date,
+                    status: record.status,
+                    remarks: record.remarks,
+                    message: "Attendance already registered",
+                };
+            } else {
+                return {
+                    date,
+                    status: "Absent",
+                    remarks: "",
+                    message: "Marked as Absent (no record found)",
+                };
+            }
+        });
+
+        res.status(200).json(response);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
