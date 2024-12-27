@@ -55,6 +55,11 @@ app.get("/students", async (req, res) => {
 });
 app.post("/register/students", async (req, res) => {
   try {
+    const existingStudent = await studentModel.findOne({ pinno: req.body.pinno });
+    if (existingStudent) {
+      return res.status(400).json({ message: "Student with this roll number already exists" });
+    }
+
     const salt = await bcrypt.genSalt();
     let password = req.body.password;
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -70,7 +75,7 @@ app.post("/register/students", async (req, res) => {
     student.qrCodeUrl = qrCodeUrl;
     await student.save();
 
-    res.status(200).json(student);
+    res.status(200).json({student, message: "Student registered successfully"});
   } catch (error) {
     console.log("error");
     res.status(500).json({ message: error.message });
@@ -79,7 +84,7 @@ app.post("/register/students", async (req, res) => {
 
 app.post("/register/hod", async (req, res) => {
   try {
-    const salt = await bcrypt.genSalt();
+    const salt = await bcrypt.genSalt(10);
     let password = req.body.password;
     const hashedPassword = await bcrypt.hash(password, salt);
     console.log("salt", salt, hashedPassword);
@@ -150,7 +155,7 @@ app.post("/students/login", async (req, res) => {
     const student = await studentModel.findOne({ pinno: req.body.pinno });
 
     if (!student) {
-      return res.status(400).json({ message: "Cannot find student" });
+      return res.status(400).json({ message: "no student found" });
     }
 
     const isPasswordValid = await bcrypt.compare(
@@ -162,7 +167,12 @@ app.post("/students/login", async (req, res) => {
       const token = jwt.sign({ username: student.pinno }, secretKeyStudent, {
         expiresIn: "7d",
       });
-      res.status(200).json({ token, student, message: "Success" });
+
+      // Update last logged in time
+      student.lastlogged = new Date();
+      await student.save();
+
+      res.status(200).json({ token, student, message: "Login Successful!" });
     } else {
       res.status(400).json({ message: "invalid Username or Password" });
     }
@@ -265,7 +275,7 @@ function verifyTokenHod(req, res, next) {
 
 app.post("/hod/login", async (req, res) => {
   try {
-    const hod = await hodSchema.findOne({ idno: req.body.idno });
+    const hod = await hodSchema.findOne({ email: req.body.email });
 
     if (!hod) {
       return res.status(400).json({ message: "Cannot find staff" });
@@ -280,7 +290,7 @@ app.post("/hod/login", async (req, res) => {
       const token = jwt.sign({ username: hod.idno }, secretKeyHod, {
         expiresIn: "7d",
       });
-      res.status(200).json({ token, hod, message: "Success" });
+      res.status(200).json({ token, hod, message: "Login Successful!" });
     } else {
       res.status(400).json({ message: "invalid Username or Password" });
     }
@@ -544,7 +554,7 @@ app.get('/attendance/:studentId', async (req, res) => {
             }
         });
 
-        res.status(200).json(response);
+        res.status(200).json({response});
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

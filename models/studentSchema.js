@@ -62,11 +62,18 @@ const StudentSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    lastlogged: {
+      type: Date,
+    },
     // dateofbirth: {
     //     type: String,
     //     required: true,
     // },
     photo: {
+      type: String,
+      required: true,
+    },
+    address:{
       type: String,
       required: true,
     },
