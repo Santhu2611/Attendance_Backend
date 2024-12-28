@@ -1,13 +1,15 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const moment = require('moment');
-const bcrypt = require('bcrypt');
-const studentModel = require('./models/studentSchema')
-const dotenv = require('dotenv');
-const hodSchema = require('./models/hodSchema')
-const cors = require('cors');
-const QRCode = require('qrcode');
-const app = express()
+const express = require("express");
+const mongoose = require("mongoose");
+const moment = require("moment");
+const bcrypt = require("bcrypt");
+const studentModel = require("./models/studentSchema");
+const dotenv = require("dotenv");
+const hodSchema = require("./models/hodSchema");
+const cors = require("cors");
+const QRCode = require("qrcode");
+const fs = require("fs");
+const path = require("path");
+const app = express();
 dotenv.config();
 const secretKeyHod = process.env.ACCESS_TOKEN_SECRET_HOD;
 const secretKeyStudent = process.env.ACCESS_TOKEN_SECRET_STUDENT;
@@ -32,15 +34,91 @@ app.get("/", (req, res) => {
 });
 process.env.TZ = "Asia/Kolkata"; // Set timezone to Indian Standard Time (IST)
 
+// Serve static files from the 'public' folder
+app.use(express.static(path.join(__dirname, "public")));
+
 app.get("/proxy", async (req, res) => {
   const { url } = req.query;
+
+  if (!url) {
+    return res.status(400).json({ error: "URL parameter is required" });
+  }
+
+  try {
+    // Fetch the image from the external URL
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error("Failed to fetch the image");
+    }
+
+    // Use arrayBuffer() instead of buffer()
+    const buffer = await response.arrayBuffer();
+
+    // Convert the arrayBuffer to a Buffer object
+    const nodeBuffer = Buffer.from(buffer);
+
+    // Ensure the 'proxied-images' directory exists
+    const directoryPath = path.join(__dirname, "public", "proxied-images");
+    if (!fs.existsSync(directoryPath)) {
+      fs.mkdirSync(directoryPath, { recursive: true });
+    }
+
+    // Sanitize the file name by encoding the URL and removing unwanted characters
+    const sanitizedFileName = encodeURIComponent(url)
+      .replace(/%2F/g, "_") // Replace URL-encoded slashes with underscores
+      .replace(/%3F/g, "") // Remove URL-encoded '?' characters
+      .replace(/%3D/g, "") // Remove URL-encoded '=' characters
+      .replace(/%26/g, "") // Remove URL-encoded '&' characters
+      .replace(/[^a-zA-Z0-9-_\.]/g, ""); // Remove any other non-alphanumeric characters
+
+    const filePath = path.join(
+      directoryPath,
+      `${Date.now()}-${sanitizedFileName}`
+    );
+
+    // Save the image buffer to a file
+    fs.writeFileSync(filePath, nodeBuffer);
+    res.setHeader("Content-Type", "image/jpeg");
+
+    // Construct the URL for the stored image
+    const proxiedImageUrl = `/proxied-images/${path.basename(filePath)}`;
+
+    // Return the URL of the saved image
+    res.json({ url: proxiedImageUrl });
+  } catch (error) {
+    console.error("Error fetching the resource:", error);
+    res.status(500).json({ error: "Error fetching the resource." });
+  }
+});
+
+app.get("/proxy-face", async (req, res) => {
+  const { url } = req.query;
+
+  if (!url) {
+    return res.status(400).json({ error: "URL parameter is required" });
+  }
+
   try {
     const response = await fetch(url);
-    const buffer = await response.buffer();
-    res.set("Content-Type", response.headers.get("content-type"));
-    res.send(buffer);
+    console.log(response);
+    if (!response.ok) {
+      throw new Error("Failed to fetch the image");
+    }
+
+    // Convert the image to Base64
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = buffer.toString("base64");
+    const contentType = response.headers.get("Content-Type");
+
+    // Create a Base64 URI
+    const base64Uri = `data:${contentType};base64,${base64Image}`;
+
+    // Send the Base64 URI in the response
+    res.json({ image: base64Uri });
   } catch (error) {
-    res.status(500).send("Error fetching the resource.");
+    console.error("Error fetching the resource:", error);
+    res.status(500).json({ error: "Error fetching the resource." });
   }
 });
 
@@ -55,9 +133,13 @@ app.get("/students", async (req, res) => {
 });
 app.post("/register/students", async (req, res) => {
   try {
-    const existingStudent = await studentModel.findOne({ pinno: req.body.pinno });
+    const existingStudent = await studentModel.findOne({
+      pinno: req.body.pinno,
+    });
     if (existingStudent) {
-      return res.status(400).json({ message: "Student with this roll number already exists" });
+      return res
+        .status(400)
+        .json({ message: "Student with this roll number already exists" });
     }
 
     const salt = await bcrypt.genSalt();
@@ -75,7 +157,9 @@ app.post("/register/students", async (req, res) => {
     student.qrCodeUrl = qrCodeUrl;
     await student.save();
 
-    res.status(200).json({student, message: "Student registered successfully"});
+    res
+      .status(200)
+      .json({ student, message: "Student registered successfully" });
   } catch (error) {
     console.log("error");
     res.status(500).json({ message: error.message });
@@ -102,7 +186,7 @@ app.get("/students/:id", async (req, res) => {
     const { id } = req.params;
     const specificStudent = await studentModel.findById(id);
     // console.log("this",specificStudent);
-    res.status(200).json(specificStudent);
+    res.status(200).json({ student: specificStudent });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -479,85 +563,118 @@ app.post("/attendance", async (req, res) => {
   try {
     const { studentId, date, status, remarks } = req.body;
 
-    // Find the student by ID and update their attendance
-    const updatedStudent = await studentModel.findByIdAndUpdate(
-      studentId,
-      { $push: { attendance: { date, status, remarks } } },
-      { new: true }
-    );
+    // Validate input
+    if (!studentId || !date || !status) {
+      return res
+        .status(400)
+        .json({ message: "Student ID, date, and status are required" });
+    }
 
-    if (!updatedStudent) {
+    // Validate status
+    const validStatuses = ["Present", "Absent", "Leave"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status. Valid statuses are: Present, Absent, Leave",
+      });
+    }
+
+    // Validate date format
+    if (!moment(date, "YYYY-MM-DD", true).isValid()) {
+      return res
+        .status(400)
+        .json({ message: "Invalid date format. Use YYYY-MM-DD" });
+    }
+
+    // Find the student by ID
+    const student = await studentModel.findById(studentId);
+    if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
 
+    // Check for duplicate attendance record
+    const existingRecord = student.attendance.find((record) =>
+      moment(record.date).isSame(date, "day")
+    );
+    if (existingRecord) {
+      return res
+        .status(400)
+        .json({ message: "Attendance for this date is already recorded" });
+    }
+
+    // Update attendance
+    student.attendance.push({ date, status, remarks });
+    await student.save();
+
     res
       .status(200)
-      .json({ message: "Attendance recorded successfully", updatedStudent });
+      .json({ message: "Attendance recorded successfully", student });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-app.get('/attendance/:studentId', async (req, res) => {
-    try {
-        const { studentId } = req.params;
-        const { startDate, endDate } = req.query;
+app.get("/attendance/:studentId", async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { startDate, endDate } = req.query;
 
-        if (!startDate || !endDate) {
-            return res.status(400).json({ message: "Please provide both startDate and endDate in the query." });
-        }
-
-        const student = await studentModel.findById(studentId).select('attendance');
-
-        if (!student) {
-            return res.status(404).json({ message: "Student not found" });
-        }
-
-        // Parse dates
-        const start = moment(startDate).startOf('day');
-        const end = moment(endDate).endOf('day');
-
-        // Generate a date range array
-        const dateRange = [];
-        let currentDate = start.clone();
-        while (currentDate.isBefore(end) || currentDate.isSame(end, 'day')) {
-            dateRange.push(currentDate.toISOString());
-            currentDate = currentDate.add(1, 'day');
-        }
-
-        // Map attendance records
-        const attendanceMap = {};
-        student.attendance.forEach(record => {
-            attendanceMap[moment(record.date).startOf('day').toISOString()] = {
-                status: record.status,
-                remarks: record.remarks || '',
-            };
-        });
-
-        // Build the response
-        const response = dateRange.map(date => {
-            const record = attendanceMap[moment(date).startOf('day').toISOString()];
-            if (record) {
-                return {
-                    date,
-                    status: record.status,
-                    remarks: record.remarks,
-                    message: "Attendance already registered",
-                };
-            } else {
-                return {
-                    date,
-                    status: "Absent",
-                    remarks: "",
-                    message: "Marked as Absent (no record found)",
-                };
-            }
-        });
-
-        res.status(200).json({response});
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        message: "Please provide both startDate and endDate in the query.",
+      });
     }
+
+    const student = await studentModel.findById(studentId).select("attendance");
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Parse dates
+    const start = moment(startDate).startOf("day");
+    const end = moment(endDate).endOf("day");
+
+    // Generate a date range array
+    const dateRange = [];
+    let currentDate = start.clone();
+    while (currentDate.isBefore(end) || currentDate.isSame(end, "day")) {
+      dateRange.push(currentDate.toISOString());
+      currentDate = currentDate.add(1, "day");
+    }
+
+    // Map attendance records
+    const attendanceMap = {};
+    student.attendance.forEach((record) => {
+      attendanceMap[moment(record.date).startOf("day").toISOString()] = {
+        status: record.status,
+        remarks: record.remarks || "",
+      };
+    });
+
+    // Build the response
+    const response = dateRange.map((date) => {
+      const record = attendanceMap[moment(date).startOf("day").toISOString()];
+      if (record) {
+        return {
+          date,
+          status: record.status,
+          remarks: record.remarks,
+          message: "Attendance already registered",
+        };
+      } else {
+        return {
+          date,
+          status: "Absent",
+          remarks: "",
+          message: "Marked as Absent (no record found)",
+        };
+      }
+    });
+
+    res.status(200).json({ response });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 app.get("/attendance", async (req, res) => {
