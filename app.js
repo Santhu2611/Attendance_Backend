@@ -561,7 +561,7 @@ app.post("/forgotPasswordStaff", async (req, res) => {
 
 app.post("/attendance", async (req, res) => {
   try {
-    const { studentId, date, status, remarks } = req.body;
+    const { studentId, date, status, remarks,pic } = req.body;
 
     // Validate input
     if (!studentId || !date || !status) {
@@ -578,12 +578,12 @@ app.post("/attendance", async (req, res) => {
       });
     }
 
-    // Validate date format
-    if (!moment(date, "YYYY-MM-DD", true).isValid()) {
-      return res
-        .status(400)
-        .json({ message: "Invalid date format. Use YYYY-MM-DD" });
-    }
+    // // Validate date format
+    // if (!moment(date, "YYYY-MM-DD", true).isValid()) {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "Invalid date format. Use YYYY-MM-DD" });
+    // }
 
     // Find the student by ID
     const student = await studentModel.findById(studentId);
@@ -591,7 +591,7 @@ app.post("/attendance", async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    // Check for duplicate attendance record
+    // Check for duplicate attendance record with status "Present"
     const existingRecord = student.attendance.find((record) =>
       moment(record.date).isSame(date, "day")
     );
@@ -601,13 +601,12 @@ app.post("/attendance", async (req, res) => {
         .json({ message: "Attendance for this date is already recorded" });
     }
 
-    // Update attendance
-    student.attendance.push({ date, status, remarks });
+    student.attendance.push({ date, status, remarks,pic });
     await student.save();
 
     res
       .status(200)
-      .json({ message: "Attendance recorded successfully", student });
+      .json({ message: `HI ${student.name}, Your attendance for today has been recorded successfully`, student });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -677,15 +676,32 @@ app.get("/attendance/:studentId", async (req, res) => {
   }
 });
 
+//write an api to get attendance of the student by id without start and end date
+app.get("/get-attendance/:studentId", async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const student = await studentModel.findById(studentId).select("attendance");
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    res.status(200).json({attendance:student.attendance});
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 app.get("/attendance", async (req, res) => {
   try {
-    const students = await studentModel.find({}).select("name attendance"); // Select only name and attendance
+    const students = await studentModel.find({}).select("name department attendance");
 
     if (!students.length) {
       return res.status(404).json({ message: "No students found" });
     }
 
-    res.status(200).json(students);
+    res.status(200).json({students});
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

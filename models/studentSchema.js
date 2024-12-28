@@ -37,6 +37,9 @@ const attendanceSchema = mongoose.Schema({
   remarks: {
     type: String,
   },
+  pic: {
+    type: String,
+  },
 });
 
 const StudentSchema = mongoose.Schema(
