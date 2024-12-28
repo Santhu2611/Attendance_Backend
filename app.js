@@ -707,6 +707,147 @@ app.get("/attendance", async (req, res) => {
   }
 });
 
+// sending mail of the attendance of the student in the .csv format
+app.post("/sendAttendance", async (req, res) => {
+  try {
+    const { studentId, startDate, endDate, staffEmail } = req.body;
+
+    if (!studentId || !startDate || !endDate) {
+      return res.status(400).json({
+        message: "Student ID, startDate, and endDate are required",
+      });
+    }
+
+    const student = await studentModel.findById(studentId).select("name attendance");
+    // get student name and pinno
+    const { name, pinno } = student;
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Parse dates
+    const start = moment(startDate).startOf("day");
+    const end = moment(endDate).endOf("day");
+
+    // Generate a date range array
+    const dateRange = [];
+    let currentDate = start.clone();
+    while (currentDate.isBefore(end) || currentDate.isSame(end, "day")) {
+      dateRange.push(currentDate.toISOString());
+      currentDate = currentDate.add(1, "day");
+    }
+
+    // Map attendance records
+    const attendanceMap = {};
+    student.attendance.forEach((record) => {
+      attendanceMap[moment(record.date).startOf("day").toISOString()] = {
+        status: record.status,
+        remarks: record.remarks || "",
+      };
+    });
+
+    // Build the CSV
+    let csv = "\nDate,Status,Remarks\n";
+    dateRange.forEach((date) => {
+      const record = attendanceMap[moment(date).startOf("day").toISOString()];
+      csv += `${moment(date).format("YYYY-MM-DD")},${record ? record.status : "Absent"},${
+        record ? record.remarks : ""
+      }\n`;
+    });
+
+    // add the student name and pinno to the csv
+    csv = `Student Name,${name}\nStudent Roll Number,${pinno}\n${csv}`;
+
+    const mailOptions = {
+      subject: "Attendance Report",
+      to: staffEmail,
+      text: "Please find the attached attendance report.",
+      attachments: [
+        {
+          filename: "attendance.csv",
+          content: csv,
+        },
+      ],
+    };
+
+    sendEmail(null, null, mailOptions);
+    res.status(200).json({ message: "Attendance report sent successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// sending mail of the attendance of a branch in the .csv format
+app.post("/sendAttendanceBranch", async (req, res) => {
+  try {
+    const { department, startDate, endDate, staffEmail } = req.body;
+
+    if (!department || !startDate || !endDate) {
+      return res.status(400).json({
+        message: "Branch, startDate, and endDate are required",
+      });
+    }
+
+    const students = await studentModel.find({ department }).select("name pinno attendance");
+
+    if (!students.length) {
+      return res.status(404).json({ message: "No students found" });
+    }
+
+    // Parse dates
+    const start = moment(startDate).startOf("day");
+    const end = moment(endDate).endOf("day");
+
+    // Generate a date range array
+    const dateRange = [];
+    let currentDate = start.clone();
+    while (currentDate.isBefore(end) || currentDate.isSame(end, "day")) {
+      dateRange.push(currentDate.toISOString());
+      currentDate = currentDate.add(1, "day");
+    }
+
+    // Build the CSV
+    let csv = ` ${department} Attendance \nStudent Name,Student Roll Number,Date,Status,Remarks\n`;
+    students.forEach((student) => {
+      const { name, pinno, attendance } = student;
+
+      // Map attendance records
+      const attendanceMap = {};
+      attendance.forEach((record) => {
+        attendanceMap[moment(record.date).startOf("day").toISOString()] = {
+          status: record.status,
+          remarks: record.remarks || "",
+        };
+      });
+
+      dateRange.forEach((date) => {
+        const record = attendanceMap[moment(date).startOf("day").toISOString()];
+        csv += `${name},${pinno},${moment(date).format("YYYY-MM-DD")},${record ? record.status : "Absent"},${
+          record ? record.remarks : ""
+        }\n`;
+      });
+    });
+
+    const mailOptions = {
+      subject: "Attendance Report",
+      to: staffEmail,
+      text: "Please find the attached attendance report.",
+      attachments: [
+        {
+          filename: "attendance.csv",
+          content: csv,
+        },
+      ],
+    };
+
+    sendEmail(null, null, mailOptions);
+    res.status(200).json({ message: "Attendance report sent successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 if (!process.env.MONGODB_URI) {
   console.error("MONGODB_URI is not defined in your .env file.");
 } else {
