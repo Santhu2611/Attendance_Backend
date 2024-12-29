@@ -38,6 +38,9 @@ process.env.TZ = "Asia/Kolkata"; // Set timezone to Indian Standard Time (IST)
 // Serve static files from the 'public' folder
 app.use(express.static(path.join(__dirname, "public")));
 
+const tempDir = path.join(os.tmpdir(), "proxied-images");
+app.use('/proxied-images', express.static(tempDir));
+
 app.get("/proxy", async (req, res) => {
   const { url } = req.query;
 
@@ -61,10 +64,8 @@ app.get("/proxy", async (req, res) => {
     // Convert the arrayBuffer to a Buffer object
     const nodeBuffer = Buffer.from(buffer);
 
-    // Ensure the 'proxied-images' directory exists
-    const directoryPath = path.join(os.tmpdir(), "proxied-images");
-    if (!fs.existsSync(directoryPath)) {
-      fs.mkdirSync(directoryPath, { recursive: true });
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
     }
 
     // Sanitize the file name by encoding the URL and removing unwanted characters
