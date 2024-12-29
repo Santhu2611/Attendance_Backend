@@ -10,6 +10,7 @@ const QRCode = require("qrcode");
 const fs = require("fs");
 const path = require("path");
 const app = express();
+const os = require('os');
 dotenv.config();
 const secretKeyHod = process.env.ACCESS_TOKEN_SECRET_HOD;
 const secretKeyStudent = process.env.ACCESS_TOKEN_SECRET_STUDENT;
@@ -61,7 +62,7 @@ app.get("/proxy", async (req, res) => {
     const nodeBuffer = Buffer.from(buffer);
 
     // Ensure the 'proxied-images' directory exists
-    const directoryPath = path.join(__dirname, "public", "proxied-images");
+    const directoryPath = path.join(os.tmpdir(), "proxied-images");
     if (!fs.existsSync(directoryPath)) {
       fs.mkdirSync(directoryPath, { recursive: true });
     }
