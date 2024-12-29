@@ -77,7 +77,7 @@ app.get("/proxy", async (req, res) => {
       .replace(/[^a-zA-Z0-9-_\.]/g, ""); // Remove any other non-alphanumeric characters
 
     const filePath = path.join(
-      directoryPath,
+      tempDir,
       `${Date.now()}-${sanitizedFileName}`
     );
 
