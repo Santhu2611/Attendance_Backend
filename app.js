@@ -118,7 +118,7 @@ app.get("/proxy-face", async (req, res) => {
     res.json({ image: base64Uri });
   } catch (error) {
     console.error("Error fetching the resource:", error);
-    res.status(500).json({ error: `Error fetching the resource.${error}` });
+    res.status(500).json({ error: `${error}` });
   }
 });
 
