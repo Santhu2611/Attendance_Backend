@@ -46,8 +46,10 @@ app.get("/proxy", async (req, res) => {
 
   try {
     // Fetch the image from the external URL
-    const decodedUrl = decodeURIComponent(url);
-    const response = await fetch(decodedUrl);
+    // const decodedUrl = decodeURIComponent(url);
+    // console.log("decodedUrl", decodedUrl);
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error("Failed to fetch the image");
     }
@@ -84,7 +86,6 @@ app.get("/proxy", async (req, res) => {
     // Construct the URL for the stored image
     const proxiedImageUrl = `/proxied-images/${path.basename(filePath)}`;
 
-    // Return the URL of the saved image
     res.json({ url: proxiedImageUrl });
   } catch (error) {
     console.error("Error fetching the resource:", error);
