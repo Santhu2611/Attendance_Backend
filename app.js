@@ -328,6 +328,23 @@ app.delete("/hod/:id", async (req, res) => {
   }
 });
 
+app.post("/send-email", async (req, res) => {
+  try {
+    const { to, subject, text } = req.body;
+
+    const mailOptions = {
+      subject,
+      to,
+      text,
+    };
+
+    sendEmail(null, null, mailOptions);
+    res.status(200).json({ message: "Email sent successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // HOD LOGIN
 
 function verifyTokenStudent(req, res, next) {
