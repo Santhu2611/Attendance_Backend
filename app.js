@@ -26,6 +26,49 @@ app.use(function (req, res, next) {
   res.header("Access-Control-Allow-Methods", "PUT, GET, POST, DELETE, OPTIONS");
   next();
 });
+
+const FACEPP_API_KEY = process.env.FACE_API_KEY;
+const FACEPP_API_SECRET = process.env.FACE_API_SECRET;
+const FACEPP_COMPARE_URL = "https://api-us.faceplusplus.com/facepp/v3/compare";
+
+app.post("/compare", async (req, res) => {
+  const { storedImageUrl, liveImageUrl } = req.body; // URLs from the frontend
+
+  try {
+    // Send request to Face++ API
+    const response = await fetch(FACEPP_COMPARE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        api_key: FACEPP_API_KEY,
+        api_secret: FACEPP_API_SECRET,
+        image_url1: storedImageUrl,
+        image_url2: liveImageUrl,
+      }),
+    });
+
+    const result = await response.json();
+
+    // Check for successful response
+    if (result.confidence) {
+      const threshold = 80; // Confidence threshold
+      if (result.confidence >= threshold) {
+        return res.json({ success: true, message: "Face Match!", confidence: result.confidence });
+      } else {
+        return res.json({ success: false, message: "Face does not match!", confidence: result.confidence });
+      }
+    } else {
+      return res.status(400).json({ success: false, message: "Face comparison failed.", error: result });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "An error occurred.", error: error.message });
+  }
+});
+
+
 app.get("/", (req, res) => {
   res.send("Hello World");
 });
@@ -636,7 +679,7 @@ app.post("/attendance", async (req, res) => {
     if (existingRecord) {
       return res
         .status(400)
-        .json({ message: "Attendance for this date is already recorded" });
+        .json({ message: "Attendance for this date is already recorded",status:400 });
     }
 
     student.attendance.push({ date, status, remarks,pic });
@@ -644,7 +687,7 @@ app.post("/attendance", async (req, res) => {
 
     res
       .status(200)
-      .json({ message: `HI ${student.name}, Your attendance for today has been recorded successfully`, student });
+      .json({ message: `HI ${student.name}, Your attendance for today has been recorded successfully`, student,status:200 });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
