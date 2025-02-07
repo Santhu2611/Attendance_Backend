@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const hodSchema = new mongoose.Schema({
+const adminSchema = new mongoose.Schema({
     email: {
         type: String,
         required: true,
@@ -8,10 +8,10 @@ const hodSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true,
+        required: true
     }
 });
 
-const Hod = mongoose.model('Hod', hodSchema);
+const Admin = mongoose.model('Admin', adminSchema);
 
-module.exports = Hod;
+module.exports = Admin;

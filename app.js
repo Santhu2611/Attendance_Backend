@@ -5,6 +5,7 @@ const bcrypt = require("bcrypt");
 const studentModel = require("./models/studentSchema");
 const dotenv = require("dotenv");
 const hodSchema = require("./models/hodSchema");
+const adminSchema = require("./models/adminSchema");
 const cors = require("cors");
 const QRCode = require("qrcode");
 const fs = require("fs");
@@ -189,7 +190,7 @@ app.post("/send-email", async (req, res) => {
 app.get("/students", async (req, res) => {
   try {
     const students = await studentModel.find({});
-    res.status(200).json(students);
+    res.status(200).json({students});
   } catch (error) {
     res.status(500).json({ message: error.message });
     console.log(error);
@@ -385,6 +386,32 @@ app.delete("/hod/:id", async (req, res) => {
     res.status(200).json({ message: "deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/admin/login", async (req, res) => {
+  try {
+    const admin = await adminSchema.findOne({ email: req.body.email });
+
+    if (!admin) {
+      return res.status(400).json({ message: "Cannot find admin" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      req.body.password,
+      admin.password
+    );
+
+    if (isPasswordValid) {
+      // const token = jwt.sign({ username: admin.email }, secretKeyHod, {
+      //   expiresIn: "7d",
+      // });
+      res.status(200).json({  admin, message: "Login Successful!" });
+    }
+
+    res.status(400).json({ message: "invalid Username or Password" });
+  } catch (error) {
+    res.status(500).send({error:error.message});
   }
 });
 
