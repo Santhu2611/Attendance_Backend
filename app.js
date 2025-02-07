@@ -11,7 +11,7 @@ const QRCode = require("qrcode");
 const fs = require("fs");
 const path = require("path");
 const app = express();
-const os = require('os');
+const os = require("os");
 dotenv.config();
 const secretKeyHod = process.env.ACCESS_TOKEN_SECRET_HOD;
 const secretKeyStudent = process.env.ACCESS_TOKEN_SECRET_STUDENT;
@@ -56,19 +56,34 @@ app.post("/compare", async (req, res) => {
     if (result.confidence) {
       const threshold = 80; // Confidence threshold
       if (result.confidence >= threshold) {
-        return res.json({ success: true, message: "Face Match!", confidence: result.confidence });
+        return res.json({
+          success: true,
+          message: "Face Match!",
+          confidence: result.confidence,
+        });
       } else {
-        return res.json({ success: false, message: "Face does not match!", confidence: result.confidence });
+        return res.json({
+          success: false,
+          message: "Face does not match!",
+          confidence: result.confidence,
+        });
       }
     } else {
-      return res.status(400).json({ success: false, message: "Face comparison failed.", error: result });
+      return res.status(400).json({
+        success: false,
+        message: "Face comparison failed.",
+        error: result,
+      });
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ success: false, message: "An error occurred.", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "An error occurred.",
+      error: error.message,
+    });
   }
 });
-
 
 app.get("/", (req, res) => {
   res.send("Hello World");
@@ -83,7 +98,7 @@ process.env.TZ = "Asia/Kolkata"; // Set timezone to Indian Standard Time (IST)
 app.use(express.static(path.join(__dirname, "public")));
 
 const tempDir = path.join(os.tmpdir(), "proxied-images");
-app.use('/proxied-images', express.static(tempDir));
+app.use("/proxied-images", express.static(tempDir));
 
 app.get("/proxy", async (req, res) => {
   const { url } = req.query;
@@ -96,7 +111,7 @@ app.get("/proxy", async (req, res) => {
     // Fetch the image from the external URL
     // const decodedUrl = decodeURIComponent(url);
     // console.log("decodedUrl", decodedUrl);
-    const fetch = (await import('node-fetch')).default;
+    const fetch = (await import("node-fetch")).default;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error("Failed to fetch the image");
@@ -120,10 +135,7 @@ app.get("/proxy", async (req, res) => {
       .replace(/%26/g, "") // Remove URL-encoded '&' characters
       .replace(/[^a-zA-Z0-9-_\.]/g, ""); // Remove any other non-alphanumeric characters
 
-    const filePath = path.join(
-      tempDir,
-      `${Date.now()}-${sanitizedFileName}`
-    );
+    const filePath = path.join(tempDir, `${Date.now()}-${sanitizedFileName}`);
 
     // Save the image buffer to a file
     fs.writeFileSync(filePath, nodeBuffer);
@@ -190,7 +202,7 @@ app.post("/send-email", async (req, res) => {
 app.get("/students", async (req, res) => {
   try {
     const students = await studentModel.find({});
-    res.status(200).json({students});
+    res.status(200).json({ students });
   } catch (error) {
     res.status(500).json({ message: error.message });
     console.log(error);
@@ -406,12 +418,12 @@ app.post("/admin/login", async (req, res) => {
       // const token = jwt.sign({ username: admin.email }, secretKeyHod, {
       //   expiresIn: "7d",
       // });
-      res.status(200).json({  admin, message: "Login Successful!" });
+      res.status(200).json({ admin, message: "Login Successful!" });
     }
 
     res.status(400).json({ message: "invalid Username or Password" });
   } catch (error) {
-    res.status(500).send({error:error.message});
+    res.status(500).send({ error: error.message });
   }
 });
 
@@ -669,7 +681,7 @@ app.post("/forgotPasswordStaff", async (req, res) => {
 
 app.post("/attendance", async (req, res) => {
   try {
-    const { studentId, date, status, remarks,pic } = req.body;
+    const { studentId, date, status, remarks, pic } = req.body;
 
     // Validate input
     if (!studentId || !date || !status) {
@@ -704,17 +716,20 @@ app.post("/attendance", async (req, res) => {
       moment(record.date).isSame(date, "day")
     );
     if (existingRecord) {
-      return res
-        .status(400)
-        .json({ message: "Attendance for this date is already recorded",status:400 });
+      return res.status(400).json({
+        message: "Attendance for this date is already recorded",
+        status: 400,
+      });
     }
 
-    student.attendance.push({ date, status, remarks,pic });
+    student.attendance.push({ date, status, remarks, pic });
     await student.save();
 
-    res
-      .status(200)
-      .json({ message: `HI ${student.name}, Your attendance for today has been recorded successfully`, student,status:200 });
+    res.status(200).json({
+      message: `HI ${student.name}, Your attendance for today has been recorded successfully`,
+      student,
+      status: 200,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -795,7 +810,7 @@ app.get("/get-attendance/:studentId", async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    res.status(200).json({attendance:student.attendance});
+    res.status(200).json({ attendance: student.attendance });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -803,13 +818,15 @@ app.get("/get-attendance/:studentId", async (req, res) => {
 
 app.get("/attendance", async (req, res) => {
   try {
-    const students = await studentModel.find({}).select("name department attendance");
+    const students = await studentModel
+      .find({})
+      .select("name department attendance");
 
     if (!students.length) {
       return res.status(404).json({ message: "No students found" });
     }
 
-    res.status(200).json({students});
+    res.status(200).json({ students });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -826,7 +843,10 @@ app.post("/sendAttendance", async (req, res) => {
       });
     }
 
-    const student = await studentModel.findById(studentId).select("name attendance");
+    const student = await studentModel
+      .findById(studentId)
+      .select("name attendance pinno");
+    console.log(student);
     // get student name and pinno
     const { name, pinno } = student;
 
@@ -859,9 +879,9 @@ app.post("/sendAttendance", async (req, res) => {
     let csv = "\nDate,Status,Remarks\n";
     dateRange.forEach((date) => {
       const record = attendanceMap[moment(date).startOf("day").toISOString()];
-      csv += `${moment(date).format("YYYY-MM-DD")},${record ? record.status : "Absent"},${
-        record ? record.remarks : ""
-      }\n`;
+      csv += `${moment(date).format("YYYY-MM-DD")},${
+        record ? record.status : "Absent"
+      },${record ? record.remarks : ""}\n`;
     });
 
     // add the student name and pinno to the csv
@@ -878,11 +898,84 @@ app.post("/sendAttendance", async (req, res) => {
         },
       ],
     };
-
-    sendEmail(null, null, mailOptions);
     res.status(200).json({ message: "Attendance report sent successfully" });
+    await sendEmail(null, null, mailOptions);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+//make a get api to get the attendance of a particular branch with start and end date
+app.get("/get-attendance-branch", async (req, res) => {
+  try {
+    const { department, startDate, endDate } = req.query;
+
+    if (!department || !startDate || !endDate) {
+      return res.status(400).json({
+        message: "Branch, startDate, and endDate are required",
+      });
+    }
+
+    // Parse and validate dates
+    const start = moment(startDate, "YYYY-MM-DD").startOf("day");
+    const end = moment(endDate, "YYYY-MM-DD").endOf("day");
+
+    if (!start.isValid() || !end.isValid()) {
+      return res.status(400).json({ message: "Invalid date format" });
+    }
+
+    // Fetch students in the selected department
+    const students = await studentModel
+      .find({ department })
+      .select("name pinno attendance");
+
+    if (!students.length) {
+      return res.status(404).json({ message: "No students found" });
+    }
+
+    // Generate date range
+    const dateRange = [];
+    let currentDate = start.clone();
+    while (currentDate.isSameOrBefore(end, "day")) {
+      dateRange.push(currentDate.format("YYYY-MM-DD"));
+      currentDate.add(1, "day");
+    }
+
+    // Create attendance response
+    const response = dateRange.map((date) => {
+      const records = students.map(({ name, pinno, attendance }) => {
+        const record = attendance.find(
+          (att) => moment(att.date).format("YYYY-MM-DD") === date
+        );
+
+        if (record) {
+          return {
+            name,
+            pinno,
+            date,
+            status: record.status,
+            remarks: record.remarks || "",
+            message: "Attendance already registered",
+          };
+        } else {
+          return {
+            name,
+            pinno,
+            date,
+            status: "Absent",
+            remarks: "",
+            message: "Marked as Absent (no record found)",
+          };
+        }
+      });
+
+      return { date, records };
+    });
+
+    res.status(200).json({ response });
+  } catch (error) {
+    console.error("Error fetching branch attendance:", error);
+    res.status(500).json({ message: "Server error, please try again later" });
   }
 });
 
@@ -897,7 +990,9 @@ app.post("/sendAttendanceBranch", async (req, res) => {
       });
     }
 
-    const students = await studentModel.find({ department }).select("name pinno attendance");
+    const students = await studentModel
+      .find({ department })
+      .select("name pinno attendance");
 
     if (!students.length) {
       return res.status(404).json({ message: "No students found" });
@@ -931,9 +1026,9 @@ app.post("/sendAttendanceBranch", async (req, res) => {
 
       dateRange.forEach((date) => {
         const record = attendanceMap[moment(date).startOf("day").toISOString()];
-        csv += `${name},${pinno},${moment(date).format("YYYY-MM-DD")},${record ? record.status : "Absent"},${
-          record ? record.remarks : ""
-        }\n`;
+        csv += `${name},${pinno},${moment(date).format("YYYY-MM-DD")},${
+          record ? record.status : "Absent"
+        },${record ? record.remarks : ""}\n`;
       });
     });
 
@@ -949,8 +1044,9 @@ app.post("/sendAttendanceBranch", async (req, res) => {
       ],
     };
 
-    sendEmail(null, null, mailOptions);
     res.status(200).json({ message: "Attendance report sent successfully" });
+
+    await sendEmail(null, null, mailOptions);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
