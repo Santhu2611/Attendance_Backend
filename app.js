@@ -20,11 +20,18 @@ const { sendEmail } = require("./node_mailer");
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors());
-app.use(function (req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "X-Requested-With");
-  res.header("Access-Control-Allow-Headers", "Content-Type");
-  res.header("Access-Control-Allow-Methods", "PUT, GET, POST, DELETE, OPTIONS");
+// app.use(function (req, res, next) {
+//   res.header("Access-Control-Allow-Origin", "*");
+//   res.header("Access-Control-Allow-Headers", "X-Requested-With");
+//   res.header("Access-Control-Allow-Headers", "Content-Type");
+//   res.header("Access-Control-Allow-Methods", "PUT, GET, POST, DELETE, OPTIONS");
+//   next();
+// });
+
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204); // ✅ Prevents duplicate responses
+  }
   next();
 });
 
@@ -202,12 +209,13 @@ app.post("/send-email", async (req, res) => {
 app.get("/students", async (req, res) => {
   try {
     const students = await studentModel.find({});
-    res.status(200).json({ students });
+    return res.status(200).json({ students }); // ✅ Ensures only one response
   } catch (error) {
-    res.status(500).json({ message: error.message });
-    console.log(error);
+    console.error("Error fetching students:", error);
   }
 });
+
+
 app.post("/register/students", async (req, res) => {
   try {
     const existingStudent = await studentModel.findOne({
@@ -418,12 +426,12 @@ app.post("/admin/login", async (req, res) => {
       // const token = jwt.sign({ username: admin.email }, secretKeyHod, {
       //   expiresIn: "7d",
       // });
-      res.status(200).json({ admin, message: "Login Successful!" });
+      return res.status(200).json({ admin, message: "Login Successful!" });
     }
 
-    res.status(400).json({ message: "invalid Username or Password" });
+    return res.status(400).json({ message: "invalid Username or Password" });
   } catch (error) {
-    res.status(500).send({ error: error.message });
+   return res.status(500).send({ error: error.message });
   }
 });
 

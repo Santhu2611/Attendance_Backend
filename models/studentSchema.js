@@ -57,6 +57,10 @@ const StudentSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    parentEmail:{
+      type: String,
+      required:true,
+    },
     studentmobile: {
       type: String,
       required: true,
