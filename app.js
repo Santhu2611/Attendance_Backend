@@ -512,7 +512,7 @@ app.post("/hod/login", async (req, res) => {
 });
 
 const otpSchema = new mongoose.Schema({
-  email: String,
+  pinno: String,
   otp: String,
   createdAt: { type: Date, expires: 300, default: Date.now }, // Set expiry for OTP
 });
@@ -529,10 +529,10 @@ function generateOTP() {
   return randomNumber;
 }
 
-async function saveOTPToDB(otp, email) {
+async function saveOTPToDB(otp, pinno) {
   try {
     const newOTP = new OTP({
-      email: email,
+      pinno: pinno,
       otp: otp,
     });
     await newOTP.save();
@@ -544,15 +544,15 @@ async function saveOTPToDB(otp, email) {
 
 app.post("/forgotPasswordStudent", async (req, res) => {
   try {
-    const emailid = req.body?.emailid;
+    const rollNumber = req.body.pinno;
     const specificStudent = await studentModel.findOne({
-      emailid: emailid,
+      pinno: rollNumber,
     });
     if (specificStudent) {
       const otp = generateOTP();
       const mailOptions = {
         subject: "Forgot Password Reset",
-        to: emailid,
+        to: specificStudent.email,
         text: `This is your OTP ${otp}`,
         html: `
                 <div class="background">
@@ -619,10 +619,11 @@ app.post("/forgotPasswordStudent", async (req, res) => {
       };
 
       sendEmail(null, null, mailOptions);
-      saveOTPToDB(otp, emailid);
+      console.log(rollNumber)
+      saveOTPToDB(otp, rollNumber);
       res.status(200).json({
         message: "OTP sent successfully",
-        studentId: specificStudent.id,
+        studentId: specificStudent._id,
       });
     } else {
       res.status(404).json({ message: "student not found" });
@@ -634,9 +635,9 @@ app.post("/forgotPasswordStudent", async (req, res) => {
 
 app.post("/verifyOTP", async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { pinno, otp } = req.body;
 
-    const result = await OTP.findOneAndDelete({ email: email, otp: otp });
+    const result = await OTP.findOneAndDelete({ pinno: pinno, otp: otp });
 
     if (!result) {
       console.log(result);
@@ -659,8 +660,8 @@ app.post("/forgotPasswordStaff", async (req, res) => {
     if (specificStudent) {
       const otp = generateOTP();
       const mailOptions = {
-        subject: "Forgot Password Reset", // Subject line
-        to: emailId, // list of receivers
+        subject: "Forgot Password Reset",
+        to: emailId,
         text: `This is your OTP ${otp}`,
         html: `
                 <div>
@@ -781,10 +782,11 @@ app.get("/attendance/:studentId", async (req, res) => {
       };
     });
 
-    // Build the response
+    let presentCount = 0;
     const response = dateRange.map((date) => {
       const record = attendanceMap[moment(date).startOf("day").toISOString()];
       if (record) {
+        if (record.status === "Present") presentCount++;
         return {
           date,
           status: record.status,
@@ -801,13 +803,19 @@ app.get("/attendance/:studentId", async (req, res) => {
       }
     });
 
-    res.status(200).json({ response });
+    const attendancePercentage = (presentCount / dateRange.length) * 100;
+
+    res.status(200).json({
+      response,
+      attendancePercentage,
+      attendedClasses: presentCount,
+      totalClasses: dateRange.length,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-//write an api to get attendance of the student by id without start and end date
 app.get("/get-attendance/:studentId", async (req, res) => {
   try {
     const { studentId } = req.params;
@@ -883,17 +891,25 @@ app.post("/sendAttendance", async (req, res) => {
       };
     });
 
-    // Build the CSV
     let csv = "\nDate,Status,Remarks\n";
+    let presentCount = 0;
     dateRange.forEach((date) => {
       const record = attendanceMap[moment(date).startOf("day").toISOString()];
+      if (record && record.status === "Present") presentCount++;
       csv += `${moment(date).format("YYYY-MM-DD")},${
         record ? record.status : "Absent"
       },${record ? record.remarks : ""}\n`;
     });
 
-    // add the student name and pinno to the csv
-    csv = `Student Name,${name}\nStudent Roll Number,${pinno}\n${csv}`;
+    // Calculate attendance percentage
+    const attendancePercentage = (presentCount / dateRange.length) * 100;
+
+    // add the student name, pinno, attendance percentage, attended classes, and total classes to the csv
+    csv = `Student Name,${name}\nStudent Roll Number,${pinno}\nAttendance Percentage,${attendancePercentage.toFixed(
+      2
+    )}%\nAttended Classes:,${presentCount}/${
+      dateRange.length
+    }\n${csv}`;
 
     const mailOptions = {
       subject: "Attendance Report",
